@@ -1,4 +1,4 @@
-name: PageVault Worker Tick
+name: NotionGitBackup Worker Tick
 
 on:
   schedule:
@@ -14,9 +14,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Trigger PageVault worker
+      - name: Trigger NotionGitBackup worker
         run: |
-          curl --fail --show-error --silent \
-            -X POST "${{ secrets.PAGEVAULT_APP_URL }}/api/worker/run?limit=1&enqueue=1" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "content-type: application/json"
+          response_file="$(mktemp)"
+          status_code="$(
+            curl --show-error --silent \
+              --output "$response_file" \
+              --write-out "%{http_code}" \
+              -X POST "${{ secrets.PAGEVAULT_APP_URL }}/api/worker/run?limit=1&enqueue=1" \
+              -H "x-cron-secret: ${{ secrets.PAGEVAULT_CRON_SECRET }}" \
+              -H "content-type: application/json" \
+              -H "accept: application/json"
+          )"
+
+          echo "HTTP $status_code"
+          cat "$response_file"
+          echo
+
+          if [ "$status_code" -ge 400 ]; then
+            exit 1
+          fi
